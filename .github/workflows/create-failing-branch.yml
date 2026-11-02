@@ -1,0 +1,18 @@
+name: Create failing branch
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push feat/percent-coupons
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          scripts/create-failing-branch.sh
+          echo "Branch pushed. Open https://github.com/${{ github.repository }}/compare/main...feat/percent-coupons?expand=1 and click **Create pull request**." >> "$GITHUB_STEP_SUMMARY"

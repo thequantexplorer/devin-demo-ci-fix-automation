@@ -1,0 +1,68 @@
+diff --git a/src/cart.js b/src/cart.js
+index c091563..1255451 100644
+--- a/src/cart.js
++++ b/src/cart.js
+@@ -1,4 +1,4 @@
+-// All money is in integer cents. Tax rates are in basis points (825 = 8.25%).
++// All money is in integer cents. Tax rates are percents (7.25 = 7.25%).
+ 
+ function subtotal(items) {
+   return items.reduce((sum, item) => {
+@@ -17,16 +17,22 @@ function applyCoupon(amountCents, coupon) {
+   if (coupon.type === 'fixed') {
+     return Math.max(0, amountCents - coupon.amountCents);
+   }
++  if (coupon.type === 'percent') {
++    if (coupon.percent <= 0 || coupon.percent > 100) {
++      throw new Error(`Invalid percent: ${coupon.percent}`);
++    }
++    return amountCents - (amountCents * coupon.percent) / 100;
++  }
+   throw new Error(`Unknown coupon type: ${coupon.type}`);
+ }
+ 
+-function tax(amountCents, taxRateBps) {
+-  return Math.round((amountCents * taxRateBps) / 10000);
++function tax(amountCents, taxRate) {
++  return Math.round((amountCents * taxRate) / 100);
+ }
+ 
+-function total(items, { coupon, taxRateBps = 0 } = {}) {
++function total(items, { coupon, taxRate = 0 } = {}) {
+   const discounted = applyCoupon(subtotal(items), coupon);
+-  return discounted + tax(discounted, taxRateBps);
++  return discounted + tax(discounted, taxRate);
+ }
+ 
+ module.exports = { subtotal, applyCoupon, tax, total };
+diff --git a/test/cart.test.js b/test/cart.test.js
+index 3e797fd..385e447 100644
+--- a/test/cart.test.js
++++ b/test/cart.test.js
+@@ -26,10 +26,24 @@ test('unknown coupon types are rejected', () => {
+ });
+ 
+ test('tax rounds to the nearest cent', () => {
+-  assert.equal(tax(4499, 725), 326);
++  assert.equal(tax(4499, 7.25), 326);
+   assert.equal(tax(1000, 0), 0);
+ });
+ 
+ test('total applies the coupon before tax', () => {
+-  assert.equal(total(items, { coupon: { type: 'fixed', amountCents: 500 }, taxRateBps: 725 }), 4289);
++  assert.equal(total(items, { coupon: { type: 'fixed', amountCents: 500 }, taxRate: 7.25 }), 4289);
++});
++
++test('percent coupon takes a share off the amount', () => {
++  assert.equal(applyCoupon(2000, { type: 'percent', percent: 10 }), 1800);
++  assert.equal(applyCoupon(2000, { type: 'percent', percent: 100 }), 0);
++});
++
++test('percent coupon result is whole cents', () => {
++  assert.equal(applyCoupon(1999, { type: 'percent', percent: 15 }), 1699);
++});
++
++test('percent coupon must be between 0 and 100', () => {
++  assert.throws(() => applyCoupon(1000, { type: 'percent', percent: 0 }), /Invalid percent/);
++  assert.throws(() => applyCoupon(1000, { type: 'percent', percent: 120 }), /Invalid percent/);
+ });
